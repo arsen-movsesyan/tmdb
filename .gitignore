@@ -1,0 +1,8 @@
+.idea
+.env
+__pycache__
+.python-version
+*.log
+playground/
+db-data
+.DS_Store

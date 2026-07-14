@@ -1,0 +1,13 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: tmdb-movie
+    environment:
+      - POSTGRES_USER=${PG_USER:-movie_admin}
+      - POSTGRES_PASSWORD=${PG_PASSWORD:-test123}
+      - POSTGRES_DB=${PG_DBNAME:-movie_db}
+    restart: always
+    volumes:
+      - ./db-data/postgres:/var/lib/postgresql/data
+    ports:
+      - "${PG_PORT:-5435}:5432"
