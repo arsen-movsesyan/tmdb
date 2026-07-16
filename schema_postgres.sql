@@ -20,6 +20,7 @@ CREATE TABLE movies (
     release_year INTEGER,
     duration_min INTEGER,
     tmdb_rating NUMERIC(3, 1),
+    country VARCHAR(100),
     budget BIGINT,
     box_office BIGINT,
     director_id INTEGER REFERENCES directors(id)

@@ -20,6 +20,7 @@ CREATE TABLE movies (
     release_year INTEGER,
     duration_min INTEGER,
     tmdb_rating REAL,
+    country TEXT,
     budget INTEGER,
     box_office INTEGER,
     director_id INTEGER,
