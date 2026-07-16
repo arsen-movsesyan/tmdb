@@ -1,17 +1,12 @@
 import os
 import sys
 import time
-import sqlite3
 import argparse
 import requests
+import psycopg2
 from dotenv import load_dotenv
 
 load_dotenv()
-
-try:
-    import psycopg2
-except ImportError:
-    psycopg2 = None
 
 API_KEY = os.getenv("TMDB_API_KEY")
 if not API_KEY:
@@ -20,16 +15,12 @@ if not API_KEY:
 
 BASE_URL = "https://api.themoviedb.org/3"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(SCRIPT_DIR, "movies.db")
 
 REQUEST_DELAY = 0.05  # 50ms between requests
 
-# Database type: "sqlite" or "postgres"
-DB_TYPE = os.getenv("DB_TYPE", "sqlite")
-
 # Postgres connection settings (from .env or environment)
 PG_HOST = os.getenv("PG_HOST", "localhost")
-PG_PORT = os.getenv("PG_PORT", "5432")
+PG_PORT = os.getenv("PG_PORT", "5435")
 PG_DBNAME = os.getenv("PG_DBNAME", "movie_db")
 PG_USER = os.getenv("PG_USER", "movie_admin")
 PG_PASSWORD = os.getenv("PG_PASSWORD")
@@ -94,30 +85,16 @@ def split_name(full_name):
     return parts[0], " ".join(parts[1:])
 
 
-def create_database(db_type="sqlite"):
-    if db_type == "sqlite":
-        schema_path = os.path.join(SCRIPT_DIR, "schema_sqlite.sql")
-        if os.path.exists(DB_PATH):
-            os.remove(DB_PATH)
-        conn = sqlite3.connect(DB_PATH)
-        with open(schema_path, "r") as f:
-            conn.executescript(f.read())
-    elif db_type == "postgres":
-        if psycopg2 is None:
-            print("Error: psycopg2 is not installed. Run: pip install psycopg2-binary")
-            sys.exit(1)
-        conn = psycopg2.connect(
-            host=PG_HOST, port=PG_PORT, dbname=PG_DBNAME,
-            user=PG_USER, password=PG_PASSWORD
-        )
-        schema_path = os.path.join(SCRIPT_DIR, "schema_postgres.sql")
-        with open(schema_path, "r") as f:
-            cursor = conn.cursor()
-            cursor.execute(f.read())
-            conn.commit()
-    else:
-        print(f"Error: Unknown DB_TYPE '{db_type}'. Use 'sqlite' or 'postgres'.")
-        sys.exit(1)
+def create_database():
+    conn = psycopg2.connect(
+        host=PG_HOST, port=PG_PORT, dbname=PG_DBNAME,
+        user=PG_USER, password=PG_PASSWORD
+    )
+    schema_path = os.path.join(SCRIPT_DIR, "schema_postgres.sql")
+    with open(schema_path, "r") as f:
+        cursor = conn.cursor()
+        cursor.execute(f.read())
+        conn.commit()
     return conn
 
 
@@ -130,14 +107,11 @@ def main():
     movies_to_fetch = args.movies
     cast_per_movie = args.cast
 
-    db_type = DB_TYPE.lower()
-    ph = "%s" if db_type == "postgres" else "?"
-
     print(f"Fetching list of {movies_to_fetch} movies...")
     movie_ids = fetch_movie_list(movies_to_fetch)
     print(f"Got {len(movie_ids)} movie IDs.")
 
-    conn = create_database(db_type)
+    conn = create_database()
     cursor = conn.cursor()
 
     # Caches: tmdb_person_id -> local db id
@@ -159,7 +133,7 @@ def main():
         first_name, last_name = split_name(name)
         person_info = get_person_details(person_id)
         cursor.execute(
-            f"INSERT INTO {table} (first_name, last_name, birth_date, nationality) VALUES ({ph}, {ph}, {ph}, {ph}) RETURNING id",
+            f"INSERT INTO {table} (first_name, last_name, birth_date, nationality) VALUES (%s, %s, %s, %s) RETURNING id",
             (first_name, last_name, person_info["birth_date"], person_info["nationality"]),
         )
         db_id = cursor.fetchone()[0]
@@ -194,7 +168,7 @@ def main():
                 break
 
         cursor.execute(
-            f"INSERT INTO movies (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}) RETURNING id",
+            "INSERT INTO movies (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id),
         )
         local_movie_id = cursor.fetchone()[0]
@@ -204,16 +178,10 @@ def main():
         for member in cast:
             actor_db_id = get_or_create_person(member["id"], member["name"], "actors", actor_cache)
             role_name = member.get("character")
-            if db_type == "postgres":
-                cursor.execute(
-                    f"INSERT INTO movie_actors (movie_id, actor_id, role_name) VALUES ({ph}, {ph}, {ph}) ON CONFLICT DO NOTHING",
-                    (local_movie_id, actor_db_id, role_name),
-                )
-            else:
-                cursor.execute(
-                    f"INSERT OR IGNORE INTO movie_actors (movie_id, actor_id, role_name) VALUES ({ph}, {ph}, {ph})",
-                    (local_movie_id, actor_db_id, role_name),
-                )
+            cursor.execute(
+                "INSERT INTO movie_actors (movie_id, actor_id, role_name) VALUES (%s, %s, %s) ON CONFLICT DO NOTHING",
+                (local_movie_id, actor_db_id, role_name),
+            )
 
         processed += 1
         if processed % 50 == 0:
@@ -223,7 +191,7 @@ def main():
     conn.commit()
     conn.close()
 
-    print(f"\nDone! {db_type.upper()} database populated.")
+    print(f"\nDone! PostgreSQL database populated.")
     print(f"  Movies: {processed}")
     print(f"  Directors: {len(director_cache)}")
     print(f"  Actors: {len(actor_cache)}")
