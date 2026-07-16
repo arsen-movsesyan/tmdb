@@ -179,6 +179,8 @@ def main():
         release_year = int(release_date[:4]) if release_date and len(release_date) >= 4 else None
         duration_min = details.get("runtime")
         tmdb_rating = details.get("vote_average")
+        production_countries = details.get("production_countries", [])
+        country = production_countries[0]["name"] if production_countries else None
         budget = details.get("budget") or None
         box_office = details.get("revenue") or None
 
@@ -192,8 +194,8 @@ def main():
                 break
 
         cursor.execute(
-            f"INSERT INTO movies (title, release_year, duration_min, tmdb_rating, budget, box_office, director_id) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}) RETURNING id",
-            (title, release_year, duration_min, tmdb_rating, budget, box_office, director_id),
+            f"INSERT INTO movies (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id) VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}) RETURNING id",
+            (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id),
         )
         local_movie_id = cursor.fetchone()[0]
 
