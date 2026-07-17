@@ -155,6 +155,11 @@ def main():
         tmdb_rating = details.get("vote_average")
         production_countries = details.get("production_countries", [])
         country = production_countries[0]["name"] if production_countries else None
+        genres = details.get("genres", [])
+        genre = genres[0]["name"] if genres else None
+        production_companies = details.get("production_companies", [])
+        production_company = production_companies[0]["name"] if production_companies else None
+        imdb_id = details.get("imdb_id")
         budget = details.get("budget") or None
         box_office = details.get("revenue") or None
 
@@ -168,8 +173,8 @@ def main():
                 break
 
         cursor.execute(
-            "INSERT INTO movies (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (title, release_year, duration_min, tmdb_rating, country, budget, box_office, director_id),
+            "INSERT INTO movies (title, release_year, duration_min, tmdb_rating, country, genre, production_company, imdb_id, budget, box_office, director_id) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (title, release_year, duration_min, tmdb_rating, country, genre, production_company, imdb_id, budget, box_office, director_id),
         )
         local_movie_id = cursor.fetchone()[0]
 

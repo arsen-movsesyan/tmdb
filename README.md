@@ -11,8 +11,8 @@ Data is fetched from [TMDb API](https://www.themoviedb.org/) (real movies, direc
 ## Prerequisites
 
 - Python 3.10+
+- Docker
 - TMDb API key (free registration at https://www.themoviedb.org/settings/api)
-- Docker (for PostgreSQL) or system SQLite
 
 ## Setup
 
@@ -26,11 +26,6 @@ pip install -r requirements.txt
 
 ```
 TMDB_API_KEY=your_tmdb_api_key
-
-# Database type: "sqlite" or "postgres"
-DB_TYPE=sqlite
-
-# PostgreSQL settings (only needed if DB_TYPE=postgres)
 PG_HOST=localhost
 PG_PORT=5435
 PG_DBNAME=movie_db
@@ -38,45 +33,23 @@ PG_USER=movie_admin
 PG_PASSWORD=test123
 ```
 
-### 3a. SQLite (default)
-
-```bash
-python populate.py
-```
-
-The database will be created as `movies.db` in the project directory.
-
-### 3b. PostgreSQL
-
-Start the container:
+### 3. Start PostgreSQL
 
 ```bash
 docker compose -p tmdb up -d
 ```
 
-Set `DB_TYPE=postgres` in `.env`, then populate:
+### 4. Populate the database
 
 ```bash
 python populate.py
 ```
 
-Connect to the database:
+### Connect to the database
 
 ```bash
 psql -h localhost -p 5435 -U movie_admin -d movie_db
 ```
-
-## Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TMDB_API_KEY` | (required) | TMDb API key |
-| `DB_TYPE` | `sqlite` | `sqlite` or `postgres` |
-| `PG_HOST` | `localhost` | PostgreSQL host |
-| `PG_PORT` | `5435` | PostgreSQL port |
-| `PG_DBNAME` | `movie_db` | PostgreSQL database name |
-| `PG_USER` | `movie_admin` | PostgreSQL user |
-| `PG_PASSWORD` | | PostgreSQL password |
 
 ## Usage
 
@@ -96,14 +69,23 @@ python populate.py -m 500 -c 3
 python populate.py --movies 2000 --cast 10
 ```
 
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TMDB_API_KEY` | (required) | TMDb API key |
+| `PG_HOST` | `localhost` | PostgreSQL host |
+| `PG_PORT` | `5435` | PostgreSQL port |
+| `PG_DBNAME` | `movie_db` | PostgreSQL database name |
+| `PG_USER` | `movie_admin` | PostgreSQL user |
+| `PG_PASSWORD` | | PostgreSQL password |
+
 ## File structure
 
 ```
 .
 ├── docker-compose.yaml    # PostgreSQL container
-├── schema_sqlite.sql      # SQLite schema
 ├── schema_postgres.sql    # PostgreSQL schema
 ├── populate.py            # Data fetcher script
-├── .env                   # Environment variables (not committed)
-└── movies.db              # SQLite database (generated)
+└── .env                   # Environment variables (not committed)
 ```

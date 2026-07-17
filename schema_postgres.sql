@@ -21,6 +21,9 @@ CREATE TABLE movies (
     duration_min INTEGER,
     tmdb_rating NUMERIC(3, 1),
     country VARCHAR(100),
+    genre VARCHAR(50),
+    production_company VARCHAR(200),
+    imdb_id VARCHAR(20),
     budget BIGINT,
     box_office BIGINT,
     director_id INTEGER REFERENCES directors(id)
