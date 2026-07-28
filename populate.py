@@ -3,10 +3,7 @@ import sys
 import time
 import argparse
 import requests
-import psycopg2
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import REQUEST_DELAY, get_db_connection
 
 API_KEY = os.getenv("TMDB_API_KEY")
 if not API_KEY:
@@ -15,15 +12,6 @@ if not API_KEY:
 
 BASE_URL = "https://api.themoviedb.org/3"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-REQUEST_DELAY = 0.05  # 50ms between requests
-
-# Postgres connection settings (from .env or environment)
-PG_HOST = os.getenv("PG_HOST", "localhost")
-PG_PORT = os.getenv("PG_PORT", "5435")
-PG_DBNAME = os.getenv("PG_DBNAME", "movie_db")
-PG_USER = os.getenv("PG_USER", "movie_admin")
-PG_PASSWORD = os.getenv("PG_PASSWORD")
 
 
 def api_get(endpoint, params=None):
@@ -86,10 +74,7 @@ def split_name(full_name):
 
 
 def create_database():
-    conn = psycopg2.connect(
-        host=PG_HOST, port=PG_PORT, dbname=PG_DBNAME,
-        user=PG_USER, password=PG_PASSWORD
-    )
+    conn = get_db_connection()
     schema_path = os.path.join(SCRIPT_DIR, "schema_postgres.sql")
     with open(schema_path, "r") as f:
         cursor = conn.cursor()

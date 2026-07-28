@@ -26,7 +26,10 @@ CREATE TABLE movies (
     imdb_id VARCHAR(20),
     budget BIGINT,
     box_office BIGINT,
-    director_id INTEGER REFERENCES directors(id)
+    director_id INTEGER REFERENCES directors(id),
+    oscar_wins INTEGER,
+    total_wins INTEGER,
+    total_nominations INTEGER
 );
 
 CREATE TABLE movie_actors (
