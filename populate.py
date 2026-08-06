@@ -25,14 +25,13 @@ def api_get(endpoint, params=None):
     return resp.json()
 
 
-def fetch_movie_list(total):
-    """Fetch movie IDs from top_rated and popular endpoints."""
-    movie_ids = []
+def iter_movie_ids():
+    """Yield movie IDs from top_rated and popular endpoints, page by page."""
     seen = set()
 
     for endpoint in ["/movie/top_rated", "/movie/popular"]:
         page = 1
-        while len(movie_ids) < total:
+        while True:
             data = api_get(endpoint, {"page": page})
             results = data.get("results", [])
             if not results:
@@ -40,15 +39,10 @@ def fetch_movie_list(total):
             for m in results:
                 if m["id"] not in seen:
                     seen.add(m["id"])
-                    movie_ids.append(m["id"])
+                    yield m["id"]
             page += 1
             if page > data.get("total_pages", 1):
                 break
-
-        if len(movie_ids) >= total:
-            break
-
-    return movie_ids[:total]
 
 
 def fetch_movie_details(movie_id):
@@ -85,16 +79,14 @@ def create_database():
 
 def main():
     parser = argparse.ArgumentParser(description="Populate movie database from TMDb API")
-    parser.add_argument("-m", "--movies", type=int, default=1000, help="Number of movies to fetch (default: 1000)")
+    parser.add_argument("-m", "--movies", type=int, default=1000, help="Number of matching movies to populate (default: 1000)")
     parser.add_argument("-c", "--cast", type=int, default=5, help="Number of cast members per movie (default: 5)")
     args = parser.parse_args()
 
     movies_to_fetch = args.movies
     cast_per_movie = args.cast
 
-    print(f"Fetching list of {movies_to_fetch} movies...")
-    movie_ids = fetch_movie_list(movies_to_fetch)
-    print(f"Got {len(movie_ids)} movie IDs.")
+    print(f"Populating {movies_to_fetch} movies (budget, box office set; released after 1990)...")
 
     conn = create_database()
     cursor = conn.cursor()
@@ -126,7 +118,11 @@ def main():
         return db_id
 
     processed = 0
-    for movie_id in movie_ids:
+    examined = 0
+    for movie_id in iter_movie_ids():
+        if processed >= movies_to_fetch:
+            break
+        examined += 1
         try:
             details = fetch_movie_details(movie_id)
         except Exception as e:
@@ -147,6 +143,9 @@ def main():
         imdb_id = details.get("imdb_id")
         budget = details.get("budget") or None
         box_office = details.get("revenue") or None
+
+        if budget is None or box_office is None or release_year is None or release_year < 1990:
+            continue
 
         # Find director from crew
         movie_credits = details.get("credits", {})
@@ -175,13 +174,15 @@ def main():
 
         processed += 1
         if processed % 50 == 0:
-            print(f"  Processed {processed}/{len(movie_ids)} movies...")
+            print(f"  Populated {processed}/{movies_to_fetch} movies ({examined} examined)...")
             conn.commit()
 
     conn.commit()
     conn.close()
 
     print(f"\nDone! PostgreSQL database populated.")
+    if processed < movies_to_fetch:
+        print(f"  Warning: only {processed} of {movies_to_fetch} requested movies matched (source lists exhausted after {examined} candidates).")
     print(f"  Movies: {processed}")
     print(f"  Directors: {len(director_cache)}")
     print(f"  Actors: {len(actor_cache)}")
